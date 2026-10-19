@@ -1,0 +1,10 @@
+{
+  "name": "Daily Calories",
+  "short_name": "Calories",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f2ec",
+  "theme_color": "#f5f2ec",
+  "icons": []
+}

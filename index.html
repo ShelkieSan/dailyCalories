@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f2ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Calorie Counter">
+<link rel="manifest" href="./manifest.json">
+<title>Daily Calories</title>
+<style>
+  :root { color-scheme: light; --bg:#f5f2ec; --card:#fff; --ink:#282820; --muted:#777267; --line:#e4dfd6; --accent:#718664; --accent-dark:#536748; --danger:#a74438; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:520px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:6px 2px 20px; }
+  h1 { font-size:26px; letter-spacing:-.6px; margin:0; }
+  .date { color:var(--muted); font-size:14px; margin-top:5px; }
+  .sun { font-size:25px; color:#827a66; }
+  .card { background:var(--card); border:1px solid rgba(40,40,32,.04); border-radius:20px; padding:20px; box-shadow:0 4px 18px rgba(40,40,32,.035); margin-bottom:15px; }
+  .eyebrow { font-size:11px; letter-spacing:1.3px; color:var(--muted); font-weight:700; }
+  .total { font-size:52px; line-height:1.12; letter-spacing:-1.8px; font-weight:750; font-variant-numeric:tabular-nums; margin:8px 0 2px; overflow-wrap:anywhere; }
+  .unit { color:var(--muted); font-size:14px; }
+  .entry-form { margin-top:22px; }
+  label { display:block; color:var(--ink); font-weight:650; font-size:14px; margin:0 0 8px; }
+  .inputs { display:flex; gap:9px; }
+  input { min-width:0; font:inherit; color:var(--ink); background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 12px; outline:none; }
+  input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(113,134,100,.14); }
+  #amount { width:43%; font-size:18px; font-weight:650; }
+  #note { flex:1; }
+  button { font:inherit; border:0; border-radius:12px; padding:13px 16px; font-weight:700; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .add { width:100%; margin-top:10px; background:var(--accent); color:white; }
+  .add:active { background:var(--accent-dark); }
+  .section-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:5px 2px 12px; }
+  h2 { font-size:17px; margin:0; letter-spacing:-.2px; }
+  .count { color:var(--muted); font-size:12px; }
+  .entries { padding:0; overflow:hidden; }
+  .entry { display:flex; align-items:center; gap:12px; padding:14px 17px; border-bottom:1px solid var(--line); }
+  .entry:last-child { border-bottom:0; }
+  .entry-main { min-width:0; flex:1; }
+  .entry-note { font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+  .entry-time { color:var(--muted); font-size:12px; margin-top:4px; }
+  .entry-kcal { white-space:nowrap; font-weight:750; font-variant-numeric:tabular-nums; }
+  .delete { background:transparent; color:var(--muted); padding:7px 8px; font-size:18px; line-height:1; }
+  .delete:active { color:var(--danger); }
+  .empty { padding:24px 16px; color:var(--muted); text-align:center; font-size:14px; }
+  .history-day { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 0; border-bottom:1px solid var(--line); }
+  .history-day:last-child { border-bottom:0; }
+  .history-day button { background:transparent; padding:0; text-align:left; flex:1; color:var(--ink); }
+  .history-date { font-weight:650; font-size:14px; }
+  .history-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+  .history-total { font-weight:750; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tools { display:flex; gap:9px; margin-top:13px; }
+  .secondary { flex:1; background:#e9e4da; color:#514e46; font-size:13px; }
+  .footer { color:var(--muted); font-size:12px; line-height:1.5; text-align:center; padding:5px 12px 0; }
+  .hidden { display:none !important; }
+  .history-detail { background:#f9f7f3; border-radius:12px; padding:12px; margin-top:10px; }
+  .detail-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:7px 0; }
+  .detail-row span:first-child { overflow-wrap:anywhere; }
+  .small-action { background:#e9e4da; color:#514e46; padding:8px 10px; font-size:12px; }
+  @media (max-width:360px) { main {padding-left:12px;padding-right:12px} .total{font-size:45px} .card{padding:16px} }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Daily Calories</h1><div class="date" id="todayDate"></div></div>
+    <div class="sun" aria-hidden="true">☼</div>
+  </header>
+
+  <section class="card" aria-label="Today's calorie total">
+    <div class="eyebrow">TODAY'S TOTAL</div>
+    <div class="total" id="total">0</div>
+    <div class="unit">kcal consumed</div>
+    <form class="entry-form" id="entryForm">
+      <label for="amount">Add calories</label>
+      <div class="inputs">
+        <input id="amount" name="amount" type="number" min="1" max="1000000" step="1" placeholder="e.g. 250" inputmode="numeric" required>
+        <input id="note" name="note" type="text" maxlength="80" placeholder="Optional note">
+      </div>
+      <button class="add" type="submit">+ Add calories</button>
+    </form>
+  </section>
+
+  <div class="section-title"><h2>Today's entries</h2><span class="count" id="entryCount">0 entries</span></div>
+  <section class="card entries" id="entries" aria-live="polite"></section>
+
+  <section class="card">
+    <div class="section-title" style="margin:0 0 4px"><h2>Daily history</h2><span class="count">Saved on this device</span></div>
+    <div id="history"></div>
+    <div class="tools">
+      <button type="button" class="secondary" id="exportBtn">Export history (CSV)</button>
+      <button type="button" class="secondary" id="backupBtn">Backup data</button>
+    </div>
+    <input class="hidden" type="file" id="restoreFile" accept="application/json,.json">
+    <div class="tools hidden" id="restoreTools">
+      <button type="button" class="secondary" id="restoreBtn">Restore selected backup</button>
+    </div>
+  </section>
+  <p class="footer">Your entries stay in this browser on this device. No account, ads, analytics, or external services. Export a backup occasionally so you don't lose your history if browser data is cleared.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+  const STORAGE_KEY = "private-calorie-counter-v1";
+  const $ = id => document.getElementById(id);
+  let data = loadData();
+  let selectedHistoryDate = null;
+
+  function localDateKey(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  }
+  function loadData() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      if (parsed && parsed.days && typeof parsed.days === "object") return parsed;
+    } catch (_) {}
+    return { version: 1, days: {} };
+  }
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      return true;
+    } catch (_) {
+      alert("The browser could not save your data. Export a backup and check available storage.");
+      return false;
+    }
+  }
+  function getDay(key = localDateKey(), create = false) {
+    if (!data.days[key] && create) data.days[key] = { entries: [] };
+    return data.days[key] || { entries: [] };
+  }
+  function totalFor(day) {
+    return day.entries.reduce((sum, entry) => sum + Number(entry.kcal || 0), 0);
+  }
+  function formatNumber(n) { return Math.round(n).toLocaleString(undefined); }
+  function dateLabel(key, includeYear = true) {
+    const [y,m,d] = key.split("-").map(Number);
+    const date = new Date(y,m-1,d,12);
+    return date.toLocaleDateString(undefined, includeYear
+      ? { weekday:"short", year:"numeric", month:"short", day:"numeric" }
+      : { weekday:"long", month:"long", day:"numeric" });
+  }
+  function timeLabel(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, {hour:"2-digit", minute:"2-digit"});
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+  function render() {
+    // The active day is selected by the device's local date. A new date gets a fresh total automatically.
+    const today = localDateKey();
+    $("todayDate").textContent = dateLabel(today, false);
+    const day = getDay(today);
+    $("total").textContent = formatNumber(totalFor(day));
+    $("entryCount").textContent = `${day.entries.length} ${day.entries.length === 1 ? "entry" : "entries"}`;
+
+    const entries = $("entries");
+    if (!day.entries.length) {
+      entries.innerHTML = '<div class="empty">Nothing added yet.<br>Enter your first calorie amount above.</div>';
+    } else {
+      entries.innerHTML = [...day.entries].reverse().map(entry => `
+        <div class="entry">
+          <div class="entry-main">
+            <div class="entry-note">${escapeHtml(entry.note || "Calories")}</div>
+            <div class="entry-time">${escapeHtml(timeLabel(entry.createdAt))}</div>
+          </div>
+          <div class="entry-kcal">+${formatNumber(entry.kcal)}</div>
+          <button type="button" class="delete" aria-label="Delete entry" title="Delete entry" data-delete="${escapeHtml(entry.id)}">×</button>
+        </div>`).join("");
+    }
+    renderHistory();
+  }
+  function renderHistory() {
+    const today = localDateKey();
+    const keys = Object.keys(data.days).filter(key => Array.isArray(data.days[key].entries) && data.days[key].entries.length)
+      .sort((a,b) => b.localeCompare(a));
+    const history = $("history");
+    if (!keys.length) {
+      history.innerHTML = '<div class="empty">Your previous days will appear here.</div>';
+      return;
+    }
+    history.innerHTML = keys.map(key => {
+      const day = getDay(key);
+      const isToday = key === today;
+      const expanded = selectedHistoryDate === key;
+      const details = expanded ? `<div class="history-detail">${day.entries.map(e => `
+        <div class="detail-row"><span>${escapeHtml(e.note || "Calories")} <span style="color:var(--muted)">· ${escapeHtml(timeLabel(e.createdAt))}</span></span><strong>${formatNumber(e.kcal)} kcal</strong></div>`).join("")}
+        <div class="detail-row" style="border-top:1px solid var(--line);margin-top:4px;padding-top:10px"><strong>Total</strong><strong>${formatNumber(totalFor(day))} kcal</strong></div>
+      </div>` : "";
+      return `<div class="history-day">
+        <button type="button" data-history="${key}">
+          <div class="history-date">${isToday ? "Today" : escapeHtml(dateLabel(key))}</div>
+          <div class="history-sub">${day.entries.length} ${day.entries.length === 1 ? "entry" : "entries"} · Tap to ${expanded ? "hide" : "view"}</div>
+        </button>
+        <div class="history-total">${formatNumber(totalFor(day))} kcal</div>
+      </div>${details}`;
+    }).join("");
+  }
+
+  $("entryForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const amount = Number($("amount").value);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) {
+      alert("Enter a calorie amount greater than 0.");
+      return;
+    }
+    const key = localDateKey();
+    const day = getDay(key, true);
+    day.entries.push({
+      id: (Date.now().toString(36) + Math.random().toString(36).slice(2,8)),
+      kcal: Math.round(amount),
+      note: $("note").value.trim(),
+      createdAt: new Date().toISOString()
+    });
+    if (saveData()) {
+      $("amount").value = "";
+      $("note").value = "";
+      render();
+      $("amount").focus();
+    }
+  });
+
+  document.addEventListener("click", event => {
+    const del = event.target.closest("[data-delete]");
+    if (del) {
+      const key = localDateKey();
+      const day = getDay(key);
+      const entry = day.entries.find(e => e.id === del.dataset.delete);
+      if (!entry) return;
+      if (confirm(`Delete ${formatNumber(entry.kcal)} kcal${entry.note ? " (" + entry.note + ")" : ""}?`)) {
+        day.entries = day.entries.filter(e => e.id !== del.dataset.delete);
+        if (!day.entries.length) delete data.days[key];
+        saveData(); render();
+      }
+      return;
+    }
+    const hist = event.target.closest("[data-history]");
+    if (hist) {
+      selectedHistoryDate = selectedHistoryDate === hist.dataset.history ? null : hist.dataset.history;
+      renderHistory();
+    }
+  });
+
+  $("exportBtn").addEventListener("click", () => {
+    const rows = [["date","time","calories_kcal","note"]];
+    Object.keys(data.days).sort().forEach(key => {
+      (data.days[key].entries || []).forEach(e => rows.push([key, timeLabel(e.createdAt), e.kcal, e.note || ""]));
+    });
+    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+    downloadFile("calorie-history.csv", csv, "text/csv;charset=utf-8");
+  });
+
+  $("backupBtn").addEventListener("click", () => {
+    downloadFile("calorie-counter-backup.json", JSON.stringify(data, null, 2), "application/json");
+  });
+  $("restoreFile").addEventListener("change", () => {
+    $("restoreTools").classList.toggle("hidden", !$("restoreFile").files.length);
+  });
+  // A small hidden restore control is available after choosing a JSON backup.
+  const restoreLabel = document.createElement("button");
+  restoreLabel.type = "button";
+  restoreLabel.className = "secondary";
+  restoreLabel.textContent = "Restore from backup";
+  restoreLabel.style.width = "100%";
+  restoreLabel.style.marginTop = "9px";
+  restoreLabel.addEventListener("click", () => $("restoreFile").click());
+  $("backupBtn").parentElement.after(restoreLabel);
+  $("restoreBtn").addEventListener("click", async () => {
+    const file = $("restoreFile").files[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || !parsed.days || typeof parsed.days !== "object") throw new Error("Invalid backup");
+      if (!confirm("Restore this backup? It will replace the history currently stored in this browser.")) return;
+      data = parsed;
+      saveData();
+      selectedHistoryDate = null;
+      render();
+      $("restoreFile").value = "";
+      $("restoreTools").classList.add("hidden");
+      alert("Backup restored.");
+    } catch (_) { alert("That file doesn't look like a valid calorie-counter backup."); }
+  });
+  function downloadFile(name, content, type) {
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // Re-render when returning to the app so the displayed date follows local midnight.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+  window.addEventListener("focus", render);
+  render();
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+})();
+</script>
+</body>
+</html>
