@@ -59,6 +59,45 @@
   .detail-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:7px 0; }
   .detail-row span:first-child { overflow-wrap:anywhere; }
   .small-action { background:#e9e4da; color:#514e46; padding:8px 10px; font-size:12px; }
+  /* Per-100 g calculator */
+  .weigh-toggle { background:transparent; color:var(--accent-dark); padding:4px 2px; font-size:13px; font-weight:650; margin-top:10px; }
+  .weigh { background:#f9f7f3; border-radius:14px; padding:12px; margin-top:8px; }
+  .weigh-label { display:block; font-size:11px; color:var(--muted); font-weight:650; margin:0 0 5px 2px; }
+  .weigh-field { flex:1; min-width:0; }
+  .weigh-field input { width:100%; }
+  .weigh-result { margin-top:9px; font-size:13px; color:var(--muted); }
+  .weigh-result strong { color:var(--ink); font-variant-numeric:tabular-nums; }
+  /* Quick re-add */
+  .quick { margin-top:16px; }
+  .quick-title { font-size:12px; color:var(--muted); font-weight:650; margin:0 0 8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:7px; }
+  .chip { display:inline-flex; align-items:baseline; gap:6px; max-width:100%; background:#f1ede5; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; font-weight:600; }
+  .chip:active { background:#e4ecdc; border-color:var(--accent); }
+  .chip-note { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px; }
+  .chip-kcal { color:var(--muted); font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .chip.added { background:#e4ecdc; border-color:var(--accent); }
+  /* Calendar */
+  .cal-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px; }
+  .cal-nav { background:#f1ede5; color:#514e46; padding:7px 12px; font-size:16px; line-height:1; }
+  .cal-nav:disabled { opacity:.35; cursor:default; }
+  .cal-month { font-weight:700; font-size:15px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+  .cal-dow { text-align:center; font-size:10px; letter-spacing:.6px; color:var(--muted); font-weight:700; padding-bottom:3px; }
+  .cal-day { aspect-ratio:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border-radius:10px; padding:2px; background:#f7f5f0; color:var(--muted); font-size:13px; font-weight:600; border:2px solid transparent; }
+  .cal-day .cal-kcal { font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; opacity:.85; }
+  .cal-day.blank { background:transparent; }
+  .cal-day.future { opacity:.45; }
+  .cal-day.green { background:#d7e8cb; color:#2f4a22; }
+  .cal-day.orange { background:#f6ddb3; color:#7a4a0e; }
+  .cal-day.red { background:#f3c5bf; color:#85291f; }
+  .cal-day.today { border-color:var(--ink); }
+  .cal-day.selected { box-shadow:0 0 0 2px var(--accent); }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px; font-size:12px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+  .legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .cal-detail { margin-top:12px; }
+  .cal-detail:empty { display:none; }
+  @media (max-width:360px) { .cal-day .cal-kcal { display:none; } }
   @media (max-width:360px) { main {padding-left:12px;padding-right:12px} .total{font-size:45px} .card{padding:16px} }
 </style>
 </head>
@@ -79,12 +118,45 @@
         <input id="amount" name="amount" type="number" min="1" max="1000000" step="1" placeholder="e.g. 250" inputmode="numeric" required>
         <input id="note" name="note" type="text" maxlength="80" placeholder="Optional note">
       </div>
+      <button type="button" class="weigh-toggle" id="weighToggle" aria-expanded="false" aria-controls="weigh">⚖ Calculate from weight</button>
+      <div class="weigh hidden" id="weigh">
+        <div class="inputs">
+          <div class="weigh-field">
+            <label class="weigh-label" for="per100">kcal per 100 g</label>
+            <input id="per100" type="text" placeholder="e.g. 52.5" inputmode="decimal" autocomplete="off">
+          </div>
+          <div class="weigh-field">
+            <label class="weigh-label" for="grams">Amount (g)</label>
+            <input id="grams" type="text" placeholder="e.g. 60" inputmode="decimal" autocomplete="off">
+          </div>
+        </div>
+        <div class="weigh-result" id="weighResult">Fill in both to calculate.</div>
+      </div>
       <button class="add" type="submit">+ Add calories</button>
     </form>
+    <div class="quick hidden" id="quick">
+      <div class="quick-title">Quick add · tap to add again</div>
+      <div class="chips" id="chips"></div>
+    </div>
   </section>
 
   <div class="section-title"><h2>Today's entries</h2><span class="count" id="entryCount">0 entries</span></div>
   <section class="card entries" id="entries" aria-live="polite"></section>
+
+  <section class="card" aria-label="Calendar">
+    <div class="cal-head">
+      <button type="button" class="cal-nav" id="calPrev" aria-label="Previous month">‹</button>
+      <div class="cal-month" id="calMonth"></div>
+      <button type="button" class="cal-nav" id="calNext" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="legend">
+      <span><i style="background:#d7e8cb"></i>Under 1,500</span>
+      <span><i style="background:#f6ddb3"></i>1,500–2,000</span>
+      <span><i style="background:#f3c5bf"></i>Over 2,000</span>
+    </div>
+    <div class="cal-detail" id="calDetail"></div>
+  </section>
 
   <section class="card">
     <div class="section-title" style="margin:0 0 4px"><h2>Daily history</h2><span class="count">Saved on this device</span></div>
@@ -171,6 +243,8 @@
           <button type="button" class="delete" aria-label="Delete entry" title="Delete entry" data-delete="${escapeHtml(entry.id)}">×</button>
         </div>`).join("");
     }
+    renderQuick();
+    renderCalendar();
     renderHistory();
   }
   function renderHistory() {
@@ -186,10 +260,7 @@
       const day = getDay(key);
       const isToday = key === today;
       const expanded = selectedHistoryDate === key;
-      const details = expanded ? `<div class="history-detail">${day.entries.map(e => `
-        <div class="detail-row"><span>${escapeHtml(e.note || "Calories")} <span style="color:var(--muted)">· ${escapeHtml(timeLabel(e.createdAt))}</span></span><strong>${formatNumber(e.kcal)} kcal</strong></div>`).join("")}
-        <div class="detail-row" style="border-top:1px solid var(--line);margin-top:4px;padding-top:10px"><strong>Total</strong><strong>${formatNumber(totalFor(day))} kcal</strong></div>
-      </div>` : "";
+      const details = expanded ? dayDetailHtml(key) : "";
       return `<div class="history-day">
         <button type="button" data-history="${key}">
           <div class="history-date">${isToday ? "Today" : escapeHtml(dateLabel(key))}</div>
@@ -200,6 +271,112 @@
     }).join("");
   }
 
+  function dayDetailHtml(key) {
+    const day = getDay(key);
+    return `<div class="history-detail">${day.entries.map(e => `
+        <div class="detail-row"><span>${escapeHtml(e.note || "Calories")} <span style="color:var(--muted)">· ${escapeHtml(timeLabel(e.createdAt))}</span></span><strong>${formatNumber(e.kcal)} kcal</strong></div>`).join("")}
+        <div class="detail-row" style="border-top:1px solid var(--line);margin-top:4px;padding-top:10px"><strong>Total</strong><strong>${formatNumber(totalFor(day))} kcal</strong></div>
+      </div>`;
+  }
+
+  // ---- Quick re-add: the foods you log most often, one tap to add again ----
+  const QUICK_MAX = 8;
+  function quickItems() {
+    const map = new Map();
+    Object.values(data.days).forEach(day => (day.entries || []).forEach(e => {
+      const kcal = Math.round(Number(e.kcal) || 0);
+      if (kcal <= 0) return;
+      const note = String(e.note || "").trim();
+      const id = note.toLowerCase() + "|" + kcal;
+      const item = map.get(id) || { note, kcal, count: 0, last: "" };
+      item.count++;
+      if ((e.createdAt || "") > item.last) { item.last = e.createdAt || ""; item.note = note; }
+      map.set(id, item);
+    }));
+    return [...map.values()]
+      .sort((a,b) => (b.count - a.count) || b.last.localeCompare(a.last))
+      .slice(0, QUICK_MAX);
+  }
+  function renderQuick() {
+    const items = quickItems();
+    $("quick").classList.toggle("hidden", !items.length);
+    $("chips").innerHTML = items.map(item => `
+      <button type="button" class="chip" data-quick-kcal="${item.kcal}" data-quick-note="${escapeHtml(item.note)}"
+        aria-label="Add ${escapeHtml(item.note || "Calories")}, ${formatNumber(item.kcal)} kcal">
+        <span class="chip-note">${escapeHtml(item.note || "Calories")}</span><span class="chip-kcal">${formatNumber(item.kcal)}</span>
+      </button>`).join("");
+  }
+
+  // ---- Calendar: color-coded month view ----
+  const GREEN_BELOW = 1500, RED_ABOVE = 2000;
+  let calMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+  let calSelected = null;
+  function levelFor(total) {
+    if (total < GREEN_BELOW) return "green";
+    if (total <= RED_ABOVE) return "orange";
+    return "red";
+  }
+  function earliestMonth() {
+    const keys = Object.keys(data.days).filter(k => (data.days[k].entries || []).length).sort();
+    if (!keys.length) return null;
+    const [y,m] = keys[0].split("-").map(Number);
+    return new Date(y, m-1, 1);
+  }
+  function renderCalendar() {
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const first = earliestMonth();
+    if (calMonth > thisMonth) calMonth = thisMonth;
+    $("calMonth").textContent = calMonth.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+    $("calNext").disabled = calMonth >= thisMonth;
+    $("calPrev").disabled = !first || calMonth <= first;
+
+    const today = localDateKey();
+    // Week starts on Monday.
+    const dows = [];
+    for (let i = 0; i < 7; i++) dows.push(new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday:"narrow" }));
+    const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    const lead = (new Date(y, m, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    let cells = dows.map(d => `<div class="cal-dow" aria-hidden="true">${escapeHtml(d)}</div>`).join("");
+    for (let i = 0; i < lead; i++) cells += '<div class="cal-day blank"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = localDateKey(new Date(y, m, d));
+      const day = getDay(key);
+      const has = day.entries.length > 0;
+      const total = totalFor(day);
+      const cls = ["cal-day",
+        has ? levelFor(total) : "",
+        key === today ? "today" : "",
+        key > today ? "future" : "",
+        key === calSelected ? "selected" : ""].filter(Boolean).join(" ");
+      const label = `${dateLabel(key)}${has ? `, ${formatNumber(total)} kcal` : ", no entries"}`;
+      cells += `<button type="button" class="${cls}" data-cal="${key}" aria-label="${escapeHtml(label)}"${key > today ? " disabled" : ""}>
+        <span>${d}</span>${has ? `<span class="cal-kcal">${formatNumber(total)}</span>` : ""}</button>`;
+    }
+    $("calGrid").innerHTML = cells;
+
+    const detail = $("calDetail");
+    if (calSelected && calSelected.startsWith(`${y}-${String(m+1).padStart(2,"0")}`)) {
+      const has = getDay(calSelected).entries.length;
+      detail.innerHTML = `<div class="history-date" style="margin:0 2px 2px">${escapeHtml(calSelected === today ? "Today" : dateLabel(calSelected))}</div>` +
+        (has ? dayDetailHtml(calSelected) : '<div class="history-sub" style="margin:4px 2px 0">No entries this day.</div>');
+    } else {
+      detail.innerHTML = "";
+    }
+  }
+
+  function addEntry(kcal, note) {
+    const day = getDay(localDateKey(), true);
+    day.entries.push({
+      id: (Date.now().toString(36) + Math.random().toString(36).slice(2,8)),
+      kcal: Math.round(kcal),
+      note: note,
+      createdAt: new Date().toISOString()
+    });
+    return saveData();
+  }
+
   $("entryForm").addEventListener("submit", event => {
     event.preventDefault();
     const amount = Number($("amount").value);
@@ -207,20 +384,46 @@
       alert("Enter a calorie amount greater than 0.");
       return;
     }
-    const key = localDateKey();
-    const day = getDay(key, true);
-    day.entries.push({
-      id: (Date.now().toString(36) + Math.random().toString(36).slice(2,8)),
-      kcal: Math.round(amount),
-      note: $("note").value.trim(),
-      createdAt: new Date().toISOString()
-    });
-    if (saveData()) {
+    if (addEntry(amount, $("note").value.trim())) {
       $("amount").value = "";
       $("note").value = "";
+      $("per100").value = "";
+      $("grams").value = "";
+      updateWeigh();
       render();
-      $("amount").focus();
+      (weighOpen() ? $("per100") : $("amount")).focus();
     }
+  });
+
+  // ---- Per-100 g calculator: fills the calorie field from kcal/100 g × grams ----
+  function weighOpen() { return !$("weigh").classList.contains("hidden"); }
+  function updateWeigh() {
+    // Always use a dot as decimal separator: a comma typed on the keyboard becomes a dot.
+    ["per100", "grams"].forEach(id => {
+      const el = $(id);
+      const clean = el.value.replace(/,/g, ".").replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+      if (clean !== el.value) el.value = clean;
+    });
+    const per100 = Number($("per100").value);
+    const grams = Number($("grams").value);
+    const result = $("weighResult");
+    const dot = n => String(Math.round(n * 100) / 100);
+    if ($("per100").value && $("grams").value && per100 > 0 && grams > 0 && per100 <= 10000 && grams <= 100000) {
+      const kcal = Math.round(per100 * grams / 100);
+      $("amount").value = kcal;
+      result.innerHTML = `${dot(grams)} g × ${dot(per100)} kcal/100 g = <strong>${formatNumber(kcal)} kcal</strong>`;
+    } else {
+      result.textContent = "Fill in both to calculate.";
+    }
+  }
+  $("per100").addEventListener("input", updateWeigh);
+  $("grams").addEventListener("input", updateWeigh);
+  $("weighToggle").addEventListener("click", () => {
+    const open = !weighOpen();
+    $("weigh").classList.toggle("hidden", !open);
+    $("weighToggle").setAttribute("aria-expanded", String(open));
+    $("weighToggle").textContent = open ? "⚖ Hide weight calculator" : "⚖ Calculate from weight";
+    if (open) $("per100").focus();
   });
 
   document.addEventListener("click", event => {
@@ -235,6 +438,25 @@
         if (!day.entries.length) delete data.days[key];
         saveData(); render();
       }
+      return;
+    }
+    const quick = event.target.closest("[data-quick-kcal]");
+    if (quick) {
+      const kcal = Number(quick.dataset.quickKcal);
+      const note = quick.dataset.quickNote || "";
+      if (addEntry(kcal, note)) {
+        render();
+        // Brief confirmation on the chip that was tapped (it re-renders in place).
+        const again = [...document.querySelectorAll("[data-quick-kcal]")]
+          .find(b => Number(b.dataset.quickKcal) === kcal && (b.dataset.quickNote || "") === note);
+        if (again) { again.classList.add("added"); setTimeout(() => again.classList.remove("added"), 700); }
+      }
+      return;
+    }
+    const cal = event.target.closest("[data-cal]");
+    if (cal) {
+      calSelected = calSelected === cal.dataset.cal ? null : cal.dataset.cal;
+      renderCalendar();
       return;
     }
     const hist = event.target.closest("[data-history]");
@@ -291,6 +513,13 @@
     a.href = url; a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  $("calPrev").addEventListener("click", () => {
+    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar();
+  });
+  $("calNext").addEventListener("click", () => {
+    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar();
+  });
 
   // Re-render when returning to the app so the displayed date follows local midnight.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
