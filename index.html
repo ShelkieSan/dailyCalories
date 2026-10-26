@@ -313,7 +313,7 @@
   let calSelected = null;
   function levelFor(total) {
     if (total <= GREEN_BELOW) return "green";
-    if (total <= RED_ABOVE) return "orange";
+    if (total < RED_ABOVE) return "orange";
     return "red";
   }
   function earliestMonth() {
