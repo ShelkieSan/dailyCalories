@@ -1,4 +1,4 @@
-const CACHE = "daily-calories-v5";
+const CACHE = "daily-calories-v6";
 const FILES = ["./", "./index.html", "./manifest.json"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
