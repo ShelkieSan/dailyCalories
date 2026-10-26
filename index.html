@@ -308,11 +308,11 @@
   }
 
   // ---- Calendar: color-coded month view ----
-  const GREEN_BELOW = 1499, RED_ABOVE = 2000;
+  const GREEN_BELOW = 1500, RED_ABOVE = 2000;
   let calMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   let calSelected = null;
   function levelFor(total) {
-    if (total < GREEN_BELOW) return "green";
+    if (total <= GREEN_BELOW) return "green";
     if (total <= RED_ABOVE) return "orange";
     return "red";
   }
