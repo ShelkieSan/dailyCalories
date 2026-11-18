@@ -98,6 +98,21 @@
   .cal-detail { margin-top:12px; }
   .cal-detail:empty { display:none; }
   @media (max-width:360px) { .cal-day .cal-kcal { display:none; } }
+  /* Editing past days */
+  .past-banner { display:flex; align-items:center; justify-content:space-between; gap:10px; background:#f6ddb3; color:#5e3a0b; border-radius:14px; padding:10px 12px 10px 14px; margin:-4px 0 14px; font-size:13px; font-weight:650; }
+  .past-banner button { background:#fff; color:#5e3a0b; padding:8px 12px; font-size:12px; white-space:nowrap; }
+  .card.editing-past { box-shadow:0 0 0 2px #f0c98a, 0 4px 18px rgba(40,40,32,.035); }
+  .edit-day-btn { width:100%; margin-top:10px; background:#e9e4da; color:#514e46; font-size:13px; }
+  .entry-main.tappable { cursor:pointer; text-align:left; background:transparent; padding:0; border:0; font:inherit; color:inherit; }
+  .entry-hint { color:var(--muted); font-size:11px; }
+  .entry-edit { display:flex; flex-direction:column; gap:8px; padding:12px 17px 14px; border-bottom:1px solid var(--line); background:#f9f7f3; }
+  .entry-edit:last-child { border-bottom:0; }
+  .entry-edit .inputs input:first-child { width:38%; font-weight:650; }
+  .entry-edit .inputs input:last-child { flex:1; }
+  .entry-edit-actions { display:flex; gap:8px; }
+  .entry-edit-actions button { flex:1; padding:10px 12px; font-size:13px; }
+  .save-btn { background:var(--accent); color:#fff; }
+  .cancel-btn { background:#e9e4da; color:#514e46; }
   @media (max-width:360px) { main {padding-left:12px;padding-right:12px} .total{font-size:45px} .card{padding:16px} }
 </style>
 </head>
@@ -108,12 +123,16 @@
     <div class="sun" aria-hidden="true">☼</div>
   </header>
 
-  <section class="card" aria-label="Today's calorie total">
-    <div class="eyebrow">TODAY'S TOTAL</div>
+  <section class="card" id="mainCard" aria-label="Calorie total">
+    <div class="past-banner hidden" id="pastBanner">
+      <span id="pastBannerText">Editing a past day</span>
+      <button type="button" id="backToday">Back to today</button>
+    </div>
+    <div class="eyebrow" id="totalLabel">TODAY'S TOTAL</div>
     <div class="total" id="total">0</div>
     <div class="unit">kcal consumed</div>
     <form class="entry-form" id="entryForm">
-      <label for="amount">Add calories</label>
+      <label for="amount" id="addLabel">Add calories</label>
       <div class="inputs">
         <input id="amount" name="amount" type="number" min="1" max="1000000" step="1" placeholder="e.g. 250" inputmode="numeric" required>
         <input id="note" name="note" type="text" maxlength="80" placeholder="Optional note">
@@ -140,7 +159,7 @@
     </div>
   </section>
 
-  <div class="section-title"><h2>Today's entries</h2><span class="count" id="entryCount">0 entries</span></div>
+  <div class="section-title"><h2 id="entriesTitle">Today's entries</h2><span class="count" id="entryCount">0 entries</span></div>
   <section class="card entries" id="entries" aria-live="polite"></section>
 
   <section class="card" aria-label="Calendar">
@@ -151,9 +170,9 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="legend">
-      <span><i style="background:#d7e8cb"></i>Under 1,500</span>
-      <span><i style="background:#f6ddb3"></i>1,500–2,000</span>
-      <span><i style="background:#f3c5bf"></i>Over 2,000</span>
+      <span><i style="background:#d7e8cb"></i>Up to 1,500</span>
+      <span><i style="background:#f6ddb3"></i>1,501–1,999</span>
+      <span><i style="background:#f3c5bf"></i>2,000 or more</span>
     </div>
     <div class="cal-detail" id="calDetail"></div>
   </section>
@@ -179,6 +198,15 @@
   const $ = id => document.getElementById(id);
   let data = loadData();
   let selectedHistoryDate = null;
+  // The day being shown/edited in the main card. null = today.
+  let activeDate = null;
+  // Id of the entry currently being edited inline, if any.
+  let editingId = null;
+  function activeKey() {
+    const today = localDateKey();
+    if (!activeDate || activeDate >= today) { activeDate = null; return today; }
+    return activeDate;
+  }
 
   function localDateKey(date = new Date()) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
@@ -224,24 +252,47 @@
   function render() {
     // The active day is selected by the device's local date. A new date gets a fresh total automatically.
     const today = localDateKey();
+    const key = activeKey();
+    const isPast = key !== today;
     $("todayDate").textContent = dateLabel(today, false);
-    const day = getDay(today);
+    $("pastBanner").classList.toggle("hidden", !isPast);
+    $("mainCard").classList.toggle("editing-past", isPast);
+    $("pastBannerText").textContent = isPast ? `Editing ${dateLabel(key, false)}` : "";
+    $("totalLabel").textContent = isPast ? "TOTAL FOR THIS DAY" : "TODAY'S TOTAL";
+    $("addLabel").textContent = isPast ? "Add calories to this day" : "Add calories";
+    $("entriesTitle").textContent = isPast ? `Entries · ${dateLabel(key)}` : "Today's entries";
+    const day = getDay(key);
     $("total").textContent = formatNumber(totalFor(day));
     $("entryCount").textContent = `${day.entries.length} ${day.entries.length === 1 ? "entry" : "entries"}`;
 
     const entries = $("entries");
     if (!day.entries.length) {
-      entries.innerHTML = '<div class="empty">Nothing added yet.<br>Enter your first calorie amount above.</div>';
+      entries.innerHTML = isPast
+        ? '<div class="empty">No entries on this day.<br>Add one above.</div>'
+        : '<div class="empty">Nothing added yet.<br>Enter your first calorie amount above.</div>';
     } else {
-      entries.innerHTML = [...day.entries].reverse().map(entry => `
-        <div class="entry">
-          <div class="entry-main">
-            <div class="entry-note">${escapeHtml(entry.note || "Calories")}</div>
-            <div class="entry-time">${escapeHtml(timeLabel(entry.createdAt))}</div>
+      const sorted = [...day.entries].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      entries.innerHTML = sorted.map(entry => entry.id === editingId ? `
+        <form class="entry-edit" data-edit-form="${escapeHtml(entry.id)}">
+          <div class="inputs">
+            <input name="kcal" type="number" min="1" max="1000000" step="1" inputmode="numeric" required value="${Math.round(entry.kcal)}" aria-label="Calories">
+            <input name="note" type="text" maxlength="80" placeholder="Optional note" value="${escapeHtml(entry.note || "")}" aria-label="Note">
           </div>
+          <div class="entry-edit-actions">
+            <button type="button" class="cancel-btn" data-edit-cancel>Cancel</button>
+            <button type="submit" class="save-btn">Save</button>
+          </div>
+        </form>` : `
+        <div class="entry">
+          <button type="button" class="entry-main tappable" data-edit="${escapeHtml(entry.id)}" aria-label="Edit ${escapeHtml(entry.note || "Calories")}">
+            <div class="entry-note">${escapeHtml(entry.note || "Calories")}</div>
+            <div class="entry-time">${escapeHtml(timeLabel(entry.createdAt))} <span class="entry-hint">· tap to edit</span></div>
+          </button>
           <div class="entry-kcal">+${formatNumber(entry.kcal)}</div>
           <button type="button" class="delete" aria-label="Delete entry" title="Delete entry" data-delete="${escapeHtml(entry.id)}">×</button>
         </div>`).join("");
+      const form = entries.querySelector("[data-edit-form]");
+      if (form) form.elements.kcal.focus();
     }
     renderQuick();
     renderCalendar();
@@ -276,7 +327,12 @@
     return `<div class="history-detail">${day.entries.map(e => `
         <div class="detail-row"><span>${escapeHtml(e.note || "Calories")} <span style="color:var(--muted)">· ${escapeHtml(timeLabel(e.createdAt))}</span></span><strong>${formatNumber(e.kcal)} kcal</strong></div>`).join("")}
         <div class="detail-row" style="border-top:1px solid var(--line);margin-top:4px;padding-top:10px"><strong>Total</strong><strong>${formatNumber(totalFor(day))} kcal</strong></div>
-      </div>`;
+      </div>${editDayButton(key)}`;
+  }
+  function editDayButton(key) {
+    const today = localDateKey();
+    if (key > today) return "";
+    return `<button type="button" class="edit-day-btn" data-edit-day="${key}">${key === today ? "✎ Edit today" : "✎ Edit this day"}</button>`;
   }
 
   // ---- Quick re-add: the foods you log most often, one tap to add again ----
@@ -360,22 +416,53 @@
     if (calSelected && calSelected.startsWith(`${y}-${String(m+1).padStart(2,"0")}`)) {
       const has = getDay(calSelected).entries.length;
       detail.innerHTML = `<div class="history-date" style="margin:0 2px 2px">${escapeHtml(calSelected === today ? "Today" : dateLabel(calSelected))}</div>` +
-        (has ? dayDetailHtml(calSelected) : '<div class="history-sub" style="margin:4px 2px 0">No entries this day.</div>');
+        (has ? dayDetailHtml(calSelected) : '<div class="history-sub" style="margin:4px 2px 0">No entries this day.</div>' + editDayButton(calSelected));
     } else {
       detail.innerHTML = "";
     }
   }
 
   function addEntry(kcal, note) {
-    const day = getDay(localDateKey(), true);
+    const key = activeKey();
+    const day = getDay(key, true);
+    // For a past day, keep the current clock time but put it on that date.
+    const now = new Date();
+    const [y,m,d] = key.split("-").map(Number);
+    const when = new Date(y, m-1, d, now.getHours(), now.getMinutes(), now.getSeconds());
     day.entries.push({
       id: (Date.now().toString(36) + Math.random().toString(36).slice(2,8)),
       kcal: Math.round(kcal),
       note: note,
-      createdAt: new Date().toISOString()
+      createdAt: when.toISOString()
     });
     return saveData();
   }
+  function openDay(key) {
+    activeDate = key === localDateKey() ? null : key;
+    editingId = null;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  $("backToday").addEventListener("click", () => openDay(localDateKey()));
+
+  // Saving an inline-edited entry.
+  document.addEventListener("submit", event => {
+    const form = event.target.closest("[data-edit-form]");
+    if (!form) return;
+    event.preventDefault();
+    const kcal = Number(form.elements.kcal.value);
+    if (!Number.isFinite(kcal) || kcal <= 0 || kcal > 1000000) {
+      alert("Enter a calorie amount greater than 0.");
+      return;
+    }
+    const entry = getDay(activeKey()).entries.find(e => e.id === form.dataset.editForm);
+    if (!entry) return;
+    const before = { kcal: entry.kcal, note: entry.note };
+    entry.kcal = Math.round(kcal);
+    entry.note = form.elements.note.value.trim();
+    if (saveData()) { editingId = null; render(); }
+    else { entry.kcal = before.kcal; entry.note = before.note; }
+  });
 
   $("entryForm").addEventListener("submit", event => {
     event.preventDefault();
@@ -428,8 +515,13 @@
 
   document.addEventListener("click", event => {
     const del = event.target.closest("[data-delete]");
+    const editDay = event.target.closest("[data-edit-day]");
+    if (editDay) { openDay(editDay.dataset.editDay); return; }
+    const edit = event.target.closest("[data-edit]");
+    if (edit) { editingId = edit.dataset.edit; render(); return; }
+    if (event.target.closest("[data-edit-cancel]")) { editingId = null; render(); return; }
     if (del) {
-      const key = localDateKey();
+      const key = activeKey();
       const day = getDay(key);
       const entry = day.entries.find(e => e.id === del.dataset.delete);
       if (!entry) return;
